@@ -51,17 +51,24 @@ pip install -e .
 
 ## Configure AI accounts
 
+You can add an account profile either with a key immediately or by setting it later.
+
 ```bash
 tf account add openai work --model gpt-5.4
-tf account add anthropic work --model claude-sonnet-4-6
-tf account add deepseek lab --model deepseek-chat
-tf account add kimi lab --model moonshot-v1-8k
-tf account add google personal --model gemini-2.5-flash
+# or set it immediately on the fly
+tf account add openai work --model gpt-5.4 --api-key "sk-..." --set-env
+
+tf account add anthropic work --model claude-sonnet-4-6 --api-key "..." --set-env
+tf account add deepseek lab --model deepseek-chat --api-key "..." --set-env
+tf account add kimi lab --model moonshot-v1-8k --api-key "..." --set-env
+tf account add google personal --model gemini-2.5-flash --api-key "..." --set-env
 
 tf account list
 ```
 
-Set the referenced environment variables, for example:
+If you do not pass `--api-key`, the command will prompt for the key interactively.
+
+The generated environment variable name is based on the provider and account name, for example:
 
 ```bash
 export TERMINALFORGE_OPENAI_WORK="..."
@@ -70,6 +77,14 @@ export TERMINALFORGE_DEEPSEEK_LAB="..."
 export TERMINALFORGE_KIMI_LAB="..."
 export TERMINALFORGE_GOOGLE_PERSONAL="..."
 ```
+
+You can also override the variable name explicitly:
+
+```bash
+tf account add google personal --model gemini-2.5-flash --api-key "..." --set-env --env-name GOOGLE_API_KEY
+```
+
+The key is stored locally in the TerminalForge secret store and can also be exported to the current shell session using `--set-env`.
 
 Never put API keys in Git, `config.json`, shell scripts committed to the repository, or source code.
 

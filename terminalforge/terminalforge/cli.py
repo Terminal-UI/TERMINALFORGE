@@ -1,4 +1,5 @@
 from __future__ import annotations
+import os
 import sys
 import typer
 from terminalforge.agents.models import AgentFramework, AgentTask
@@ -7,6 +8,7 @@ from terminalforge.core.config import ConfigStore
 from terminalforge.core.models import AccountProfile, Provider, ExecutionMode
 from terminalforge.core.registry import ModuleRegistry
 from terminalforge.modules import code, git, ai, docker, kubernetes, cloud, database, api, system, network, logs, security
+from terminalforge.security.secrets import SecretStore
 
 app = typer.Typer(no_args_is_help=False, add_completion=False)
 account_app = typer.Typer(help="Manage named AI account profiles")
@@ -40,12 +42,35 @@ def mode_set(mode: ExecutionMode):
     typer.echo(f"Execution mode: {mode.value}")
 
 @account_app.command("add")
-def account_add(provider: Provider, name: str, model: str = "", label: str = "", group: str = "default"):
+def account_add(
+    provider: Provider,
+    name: str,
+    model: str = "",
+    label: str = "",
+    group: str = "default",
+    api_key: str = typer.Option("", "--api-key", "-k", help="API key to associate with this account immediately."),
+    set_env: bool = typer.Option(False, "--set-env", help="Set the generated environment variable in the current process and also persist it locally."),
+    env_name: str | None = typer.Option(None, "--env-name", help="Optional custom environment variable name to write the key to."),
+):
     cfg = ConfigStore(); accounts = cfg.load_accounts()
-    ref = f"TERMINALFORGE_{provider.value.upper()}_{group.upper().replace('-', '_')}_{name.upper().replace('-', '_')}"
+    if group == "default":
+        ref = env_name or f"TERMINALFORGE_{provider.value.upper()}_{name.upper().replace('-', '_')}"
+    else:
+        ref = env_name or f"TERMINALFORGE_{provider.value.upper()}_{group.upper().replace('-', '_')}_{name.upper().replace('-', '_')}"
     accounts = [a for a in accounts if not (a.provider == provider and a.name == name and a.group == group)]
     accounts.append(AccountProfile(provider=provider, name=name, group=group, label=label, model=model or None, secret_ref=ref))
     cfg.save_accounts(accounts)
+
+    resolved_key = api_key or typer.prompt(f"API key for {group}/{provider.value}/{name}", hide_input=True)
+    if resolved_key:
+        SecretStore().set_local(ref, resolved_key)
+        os.environ[ref] = resolved_key
+        if env_name:
+            os.environ[env_name] = resolved_key
+        typer.echo(f"Saved API key for {group}/{provider.value}/{name} to {ref}")
+        typer.echo(f"export {ref}='{resolved_key}'")
+        if set_env:
+            typer.echo(f"Environment is active for this session: {ref}={resolved_key[:4]}***")
     typer.echo(f"Added {group}/{provider.value}/{name}; secret env var: {ref}")
 
 @account_app.command("list")
@@ -86,3 +111,7 @@ def main():
         TerminalForgeApp(registry(), ConfigStore()).run()
     else:
         app()
+
+
+if __name__ == "__main__":
+    main()
